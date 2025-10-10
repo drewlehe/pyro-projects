@@ -16,7 +16,7 @@ def model_wait_times(t):
     with pyro.plate("data", len(t)):
         pyro.sample("t_obs", dist.Exponential(lam), obs=t)
 
-# --- Inference example (SVI with autoguide) ---
+# Inference using SVI with autoguide
 from pyro.infer.autoguide import AutoGuideList, AutoDelta
 from pyro.infer import SVI, Trace_ELBO
 from pyro.optim import Adam
