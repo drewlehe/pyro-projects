@@ -14,6 +14,10 @@ def model_wait_times(t):
     # The likelihood in a Bayesian experiment models your 'process' that generates the data. The conjugate prior is a guess at that process's parameter(s).
     # So we essentially have two guesses: one for the process, and one for the process's parameters. This 'double-layered guess' is common to all Bayesian experiments.
     with pyro.plate("data", len(t)):
+        # The pyro plate essentially says: 
+        # “Everything I sample inside here happens independently for each item in this batch, so please handle it in a 
+        # vectorized and probability-correct way.”
+        # Whereas a loop would create separate 'sites', the plate keeps all samples in one site called "data"
         pyro.sample("t_obs", dist.Exponential(lam), obs=t)
 
 # Inference using SVI with autoguide
