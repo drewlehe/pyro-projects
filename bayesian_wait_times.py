@@ -1,6 +1,10 @@
 import pyro
 import pyro.distributions as dist
 import torch
+from pyro.infer.autoguide import AutoGuideList, AutoDelta
+from pyro.infer import SVI, Trace_ELBO
+from pyro.optim import Adam
+
 
 def model_wait_times(t):
     # Simple Bayesian experimment to model wait times.
@@ -17,14 +21,10 @@ def model_wait_times(t):
         # The pyro plate essentially says: 
         # “Everything I sample inside here happens independently for each item in this batch, so please handle it in a 
         # vectorized and probability-correct way.”
-        # Whereas a loop would create separate 'sites', the plate keeps all samples in one site called "data"
         pyro.sample("t_obs", dist.Exponential(lam), obs=t)
+        # Whereas a loop would create separate 'sites', the plate keeps all samples in one site called "data"
 
 # Inference using SVI with autoguide
-from pyro.infer.autoguide import AutoGuideList, AutoDelta
-from pyro.infer import SVI, Trace_ELBO
-from pyro.optim import Adam
-
 def fit_svi(t, steps=2000, lr=0.02):
     guide = AutoGuideList(model_wait_times)
     # Conjugate here is analytic, but we can still use a simple guide:
