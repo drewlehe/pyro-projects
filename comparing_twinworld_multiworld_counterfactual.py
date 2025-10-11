@@ -1,7 +1,5 @@
 """
-cf_pipeline.py
-
-Single script demonstrating:
+Demonstrating
 - Pyro causal model with latent confounder U
 - Simulate data
 - SVI posterior inference with AutoNormal
@@ -19,28 +17,20 @@ from pyro.infer import SVI, Trace_ELBO
 from pyro.infer.autoguide import AutoNormal
 from pyro.optim import Adam
 import matplotlib.pyplot as plt
-
-# Try importing ChiRho counterfactual classes
-try:
-    from chirho.counterfactual import MultiWorldCounterfactual, TwinWorldCounterfactual
-except Exception as e:
-    print("ERROR: Could not import ChiRho counterfactual classes.")
-    print("Make sure the 'chirho' package is installed and on PYTHONPATH.")
-    print("Original import error:", e)
-    sys.exit(1)
+from chirho.counterfactual import MultiWorldCounterfactual, TwinWorldCounterfactual
 
 # reproducibility
 pyro.set_rng_seed(0)
 torch.manual_seed(0)
 
-# ---- Model hyperparameters (true) ----
+# ---- Model hyperparameters
 N = 500                       # number of individuals
 alpha = 1.0                   # logistic link for P(T=1 | U)
 beta = 2.0                    # treatment effect
 gamma = 1.0                   # effect of U on Y
 sigma = 0.5                   # observation noise
 
-# ---- 1) Simulate observed data ----
+# ---- Simulate observed data
 u_true = torch.randn(N)                             # latent confounder (unobserved)
 p_t = torch.sigmoid(alpha * u_true)                 # propensity per individual
 t_true = torch.bernoulli(p_t)                       # observed treatment (0/1)
@@ -49,7 +39,7 @@ y_true = beta * t_true + gamma * u_true + sigma * torch.randn(N)  # observed out
 # Put observed data in dictionary (torch tensors)
 data = {"treatment": t_true, "outcome": y_true}
 
-# ---- 2) Pyro model (vectorized over data) ----
+# ---- Pyro model (vectorized over data) 
 def model(data=None):
     # data: dict with "treatment" and "outcome" tensors of shape [N]
     if data is None:
@@ -68,7 +58,7 @@ def model(data=None):
         pyro.sample("outcome", dist.Normal(y_mean, sigma), obs=outcomes)
     return {}
 
-# ---- 3) Variational inference (AutoNormal guide + SVI) ----
+# ---- Variational inference (AutoNormal guide + SVI)
 pyro.clear_param_store()
 guide = AutoNormal(model)
 optim = Adam({"lr": 0.01})
@@ -89,7 +79,7 @@ posterior_sample = guide(data)
 U_post_example = posterior_sample["U"]
 print("posterior sample 'U' shape:", U_post_example.shape)
 
-# ---- 4) Build ChiRho counterfactual objects using the posterior guide ----
+# ---- Build ChiRho counterfactual objects using the posterior guide
 # NOTE: API used here follows the earlier discussion: passing posterior_guide and data.
 # If your ChiRho version uses different kwarg names, adapt accordingly.
 print("Constructing counterfactual objects...")
@@ -118,7 +108,7 @@ print("Sampling complete.")
 # multi_samples: dict with keys like "world_0", "world_1", each mapping to dicts of tensors
 # twin_samples: same, but paired by posterior latent 'U' per individual.
 
-# ---- 6) Compute ATE (MultiWorld) ----
+# ---- Compute ATE (MultiWorld)
 # Handle shapes carefully: worlds expected to have 'outcome' tensors
 w0_out = multi_samples["world_0"]["outcome"]   # shape maybe [n_samples, N] or [n_samples, ...]
 w1_out = multi_samples["world_1"]["outcome"]
@@ -135,7 +125,7 @@ def collapse_mean(tensor):
 ate_multi = collapse_mean(w1_out) - collapse_mean(w0_out)
 print(f"Posterior ATE (MultiWorld) = {ate_multi:.4f}")
 
-# ---- 7) Compute ITE distribution & ATE from TwinWorld ----
+# ---- Compute ITE distribution & ATE from TwinWorld
 tw_w0_out = twin_samples["world_0"]["outcome"]   # expected shape [n_samples, N]
 tw_w1_out = twin_samples["world_1"]["outcome"]
 
@@ -151,7 +141,7 @@ ite_mean_per_individual = ite_samples.mean(dim=0)   # shape: [N]
 ate_twin = float(ite_mean_per_individual.mean().detach().cpu().numpy())
 print(f"Posterior ATE (TwinWorld, mean over individuals) = {ate_twin:.4f}")
 
-# ---- 8) Plot histogram of posterior ITE (across individuals)
+# Plot histogram of posterior ITE (across individuals)
 # We'll use the per-individual posterior mean ITEs as the main visualization.
 ite_for_plot = ite_mean_per_individual.detach().cpu().numpy()
 
@@ -171,9 +161,7 @@ plt.savefig(out_plot, dpi=150)
 print(f"Saved ITE histogram to {out_plot}")
 plt.show()
 
-# ---- 9) Example: inspect a few individuals (first 5) ----
+# ---- Example: inspect a few individuals (first 5)
 print("\nExample: first 5 individuals' posterior mean ITEs:")
 for i in range(min(5, N)):
     print(f"  i={i:3d} ITE_mean = {ite_mean_per_individual[i].item():.4f}")
-
-print("\nScript complete.")
